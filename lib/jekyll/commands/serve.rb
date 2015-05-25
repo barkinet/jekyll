@@ -99,17 +99,26 @@ module Jekyll
           opts
         end
 
-        # Custom WEBrick FileHandler servlet for serving "/file.html" at "/file"
-        # when no exact match is found. This mirrors the behavior of GitHub
-        # Pages and many static web server configs.
+        # Allows files to be routed in a pretty URL in both default format
+        # and in custom page/index.html format and while doing so takes into
+        # consideration importance of blog.html > blog/ but not > blog/index.html
+        # because you could have URL's like blog.html, blog/archive/page.html
+        # and in a normal circumstance blog/ would be greater than blog.html
+        # breaking your entire site when you are playing around, and I
+        # don't think you really want that to happen when testing do you?
+
         def custom_file_handler
           Class.new WEBrick::HTTPServlet::FileHandler do
             def search_file(req, res, basename)
-              if file = super
-                file
-              else
-                super(req, res, "#{basename}.html")
+              if (file = super) || (file = super req, res, "#{basename}.html")
+                return file
+
+              elsif (file = req.path.gsub(/\/\Z/, "") + ".html") && \
+                  File.file?(File.join(@config[:DocumentRoot], file))
+                return ".html"
               end
+
+              nil
             end
           end
         end
